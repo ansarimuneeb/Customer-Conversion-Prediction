@@ -1,0 +1,553 @@
+import matplotlib.pyplot as plt
+import numpy as np
+
+from google.colab import files
+import pandas as pd
+import io
+
+# Upload the file
+uploaded = files.upload()
+
+# Read the file into a DataFrame
+if 'sales_data.csv' in uploaded:
+    # Read the file into a pandas DataFrame
+    data = pd.read_csv(io.BytesIO(uploaded['sales_data.csv']))
+    # Show the first few rows of the DataFrame
+    print(data.head())
+else:
+    # If the file isn't found, print an error message
+    print("File not found. Please check the filename and upload again.")
+
+# Structure and summary of the data
+print(data.info())
+print(data.describe())
+
+# Check for missing values (NaN)
+print(data.isna().sum().sum())
+
+#Unique Values for each categorical variable
+unique_flag = data['flag'].unique()
+print(unique_flag)
+
+unique_gender = data['gender'].unique()
+print(unique_gender)
+
+unique_education = data['education'].unique()
+print(unique_education)
+
+unique_age = data['age'].unique()
+print(unique_age)
+
+unique_online = data['online'].unique()
+print(unique_online)
+
+unique_marriage = data['marriage'].unique()
+print(unique_marriage)
+
+unique_child = data['child'].unique()
+print(unique_child)
+
+unique_occupation = data['occupation'].unique()
+print(unique_occupation)
+
+unique_mortgage = data['mortgage'].unique()
+print(unique_mortgage)
+
+unique_house_owner = data['house_owner'].unique()
+print(unique_house_owner)
+
+unique_region = data['region'].unique()
+print(unique_region)
+
+unique_fam_income = data['fam_income'].unique()
+print(unique_fam_income)
+
+# Boxplot for house_value to identify outliers
+plt.boxplot(data['house_val'])
+plt.show()
+
+# Identifying and handling outliers in house_val
+print((data['house_val'] > 3000000).sum())
+print(((data['house_val'] > 3000000).sum() / len(data)) * 100)
+
+
+# Removing outliers
+data = data[data['house_val'] <= 3000000]
+
+# Handling weird naming in 'education'
+education_mapping = {
+    "0. <HS": "<HS",
+    "1. HS": "HS",
+    "2. Some College": "College",
+    "3. Bach": "Bach",
+    "4. Grad": "Grad",
+    "": np.nan # Convert empty strings to NaN
+}
+data['education'].replace(education_mapping, inplace=True)
+data.dropna(subset=['education'], inplace=True) # Remove rows with NaN in 'education'
+
+# Handling weird naming in 'age'
+age_mapping = {
+    "1_Unk": "Unknown",
+    "2_<=25": "<=25",
+    "3_<=35": "<=35",
+    "4_<=45": "<=45",
+    "5_<=55": "<=55",
+    "6_<=65": "<=65",
+    "7_>65": ">65"
+}
+data['age'].replace(age_mapping, inplace=True)
+
+# Handling weird naming in 'mortgage'
+mortgage_mapping = {
+    "1Low": "Low",
+    "2Med": "Med",
+    "3High": "High"
+}
+data['mortgage'].replace(mortgage_mapping, inplace=True)
+
+# Handling missing values in 'house_owner' and 'marriage'
+data['house_owner'].replace("", np.nan, inplace=True)
+data.dropna(subset=['house_owner'], inplace=True)
+
+data['marriage'].replace("", "Unknown", inplace=True)
+
+# Convert individual variables to categorical types
+categorical_columns = ['flag', 'gender', 'education', 'age', 'online', 'marriage',
+                       'child', 'occupation', 'mortgage', 'house_owner', 'region', 'fam_income']
+for col in categorical_columns:
+    data[col] = data[col].astype('category')
+
+
+# Structure after conversions
+print(data.info()) 
+
+# Descriptive statistics for numeric variables
+numeric_stats = data.describe()
+
+# Frequency distribution for categorical variables
+categorical_stats = data.describe(include='category')
+
+print("Descriptive statistics for numeric variables:")
+print(numeric_stats)
+
+print("\nFrequency distribution for categorical variables:")
+print(categorical_stats)
+
+
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+# Using one-hot encoding for all categorical variables including 'flag'
+categorical_variables = ['flag', 'gender', 'education', 'age', 'online',
+                         'marriage', 'child', 'occupation', 'mortgage',
+                         'house_owner', 'region', 'fam_income']
+
+encoded_data = pd.get_dummies(data, columns=categorical_variables, drop_first=False)
+
+# Correlation matrix
+correlation_matrix = encoded_data.corr()
+
+# 'house_val' variable
+correlations_with_house_val = correlation_matrix['house_val'].sort_values(ascending=False)
+
+print("Correlations of all variables with 'house_val':")
+print(correlations_with_house_val)
+
+# Heatmap for correlations with 'house_val'
+sorted_correlation_df = encoded_data[correlations_with_house_val.index].corr()
+plt.figure(figsize=(12, 10))
+sns.heatmap(sorted_correlation_df[['house_val']], annot=True, cmap='coolwarm', center=0)
+plt.title('Correlation with House Value')
+plt.show()
+
+
+encoded_data = data.copy()
+
+# Map binary categorical variables to numbers (for example, 'flag', 'online', etc.)
+binary_mappings = {
+    'Y': 1,
+    'N': 0
+}
+
+encoded_data['flag_numeric'] = encoded_data['flag'].map(binary_mappings)
+
+categorical_variables = ['gender', 'education', 'age', 'online',
+                         'marriage', 'child', 'occupation', 'mortgage',
+                         'house_owner', 'region', 'fam_income']
+
+encoded_data = pd.get_dummies(encoded_data, columns=categorical_variables, drop_first=True)
+
+# Calculate the correlation matrix
+correlation_matrix = encoded_data.corr()
+
+correlation_pairs = correlation_matrix.where(np.tril(np.ones(correlation_matrix.shape), k=-1).astype(bool))
+
+# Stack the data and reset index
+correlation_stacked = correlation_pairs.stack().reset_index()
+
+# Name the columns
+correlation_stacked.columns = ['Variable 1', 'Variable 2', 'Correlation']
+
+# Calculate whether each correlation is positive or negative
+correlation_stacked['Positive'] = correlation_stacked['Correlation'] > 0
+
+# Sort by the absolute value of 'Correlation', descending
+correlation_stacked['AbsCorrelation'] = correlation_stacked['Correlation'].abs()
+top_correlations = correlation_stacked.sort_values('AbsCorrelation', ascending=False).head(15)
+
+# Drop the 'AbsCorrelation' column as it's no longer needed
+top_correlations = top_correlations.drop('AbsCorrelation', axis=1)
+
+# Display the top 15 correlations
+print(top_correlations)
+
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# Set the aesthetic style of the plots
+sns.set_style("whitegrid")
+
+# Visualisation 1: Distribution of house values
+plt.figure(figsize=(10, 6))
+sns.histplot(data['house_val'], kde=True)
+plt.title('Distribution of House Values')
+plt.xlabel('House Value')
+plt.ylabel('Frequency')
+plt.show()
+
+# Visualisation 2: Count plot for education levels
+plt.figure(figsize=(10, 6))
+sns.countplot(data=data, x='education')
+plt.title('Count of Education Levels')
+plt.xlabel('Education')
+plt.ylabel('Count')
+plt.show()
+
+# Visualisation 3: Age distribution within each education level
+plt.figure(figsize=(10, 6))
+sns.boxplot(data=data, x='education', y='house_val')
+plt.title('House Value across Education Levels')
+plt.xlabel('Education')
+plt.ylabel('House Value')
+plt.show()
+
+# Visualisation 4: Relationship between online activity and house value
+plt.figure(figsize=(10, 6))
+sns.violinplot(data=data, x='online', y='house_val')
+plt.title('House Value for Online and Offline Customers')
+plt.xlabel('Online')
+plt.ylabel('House Value')
+plt.show()
+
+# Visualisation 5: House value distribution by region
+plt.figure(figsize=(10, 6))
+sns.barplot(data=data, x='region', y='house_val')
+plt.title('Average House Value by Region')
+plt.xlabel('Region')
+plt.ylabel('Average House Value')
+plt.show()
+
+# Visualisation 6: Family income vs. mortgage status
+plt.figure(figsize=(10, 6))
+sns.countplot(data=data, x='fam_income', hue='mortgage')
+plt.title('Family Income and Mortgage Status')
+plt.xlabel('Family Income')
+plt.ylabel('Count')
+plt.legend(title='Mortgage')
+plt.show()
+
+
+print(data.info)
+print(encoded_data.info)
+
+import pandas as pd
+from sklearn.model_selection import train_test_split, GridSearchCV
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
+from sklearn.preprocessing import OneHotEncoder
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+
+# Map target variable 'flag' to numeric values
+data['flag_numeric'] = data['flag'].map({'Y': 1, 'N': 0})
+
+# Define features and target variable
+X = data.drop(['flag', 'flag_numeric'], axis=1)  # Drop the original flag and the encoded flag_numeric
+y = data['flag_numeric']
+
+# Define categorical features for encoding
+categorical_features = X.select_dtypes(include=['object', 'category']).columns.tolist()
+
+# One-hot encode categorical features
+preprocessor = ColumnTransformer(
+    transformers=[
+        ('cat', OneHotEncoder(handle_unknown='ignore'), categorical_features)
+    ],
+    remainder='passthrough'
+)
+
+# Split the data into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+
+# Random Forest Pipeline
+rf_pipeline = Pipeline(steps=[
+    ('preprocessor', preprocessor),
+    ('classifier', RandomForestClassifier(random_state=42))
+])
+
+# Logistic Regression Pipeline
+lr_pipeline = Pipeline(steps=[
+    ('preprocessor', preprocessor),
+    ('classifier', LogisticRegression(solver='liblinear', random_state=42))
+])
+
+# Parameter grid for Random Forest
+param_grid_rf = {
+    'classifier__n_estimators': [100, 200, 300],  # Number of trees in the forest
+    'classifier__max_depth': [None, 10, 20, 30],  # Maximum depth of the trees
+}
+
+# Parameter grid for Logistic Regression
+param_grid_lr = {
+    'classifier__C': [0.001, 0.01, 0.1, 1, 10],
+    'classifier__penalty': ['l1', 'l2']
+}
+
+# GridSearch for Random Forest
+grid_search_rf = GridSearchCV(rf_pipeline, param_grid_rf, cv=5, n_jobs=-1, verbose=2)
+grid_search_rf.fit(X_train, y_train)
+print(f'Best parameters for Random Forest: {grid_search_rf.best_params_}')
+
+# GridSearch for Logistic Regression
+grid_search_lr = GridSearchCV(lr_pipeline, param_grid_lr, cv=5, n_jobs=-1, verbose=2)
+grid_search_lr.fit(X_train, y_train)
+print(f'Best parameters for Logistic Regression: {grid_search_lr.best_params_}')
+
+# Evaluate Random Forest
+y_pred_rf = grid_search_rf.predict(X_test)
+print(f'Random Forest Accuracy: {accuracy_score(y_test, y_pred_rf)}')
+print(classification_report(y_test, y_pred_rf))
+print(confusion_matrix(y_test, y_pred_rf))
+
+# Evaluate Logistic Regression
+y_pred_lr = grid_search_lr.predict(X_test)
+print(f'Logistic Regression Accuracy: {accuracy_score(y_test, y_pred_lr)}')
+print(classification_report(y_test, y_pred_lr))
+print(confusion_matrix(y_test, y_pred_lr))
+
+
+from sklearn.metrics import roc_curve, auc
+import matplotlib.pyplot as plt
+
+# Predict probabilities for the test set
+y_probs_rf = grid_search_rf.predict_proba(X_test)[:, 1]  # probabilities for the positive class
+
+# Compute ROC curve and area under the curve for Random Forest
+fpr_rf, tpr_rf, thresholds_rf = roc_curve(y_test, y_probs_rf)
+roc_auc_rf = auc(fpr_rf, tpr_rf)
+
+# Plot ROC curve for Random Forest
+plt.figure(figsize=(8, 6))
+plt.plot(fpr_rf, tpr_rf, color='darkorange', lw=2, label=f'ROC curve (area = {roc_auc_rf:.2f})')
+plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
+plt.xlim([0.0, 1.0])
+plt.ylim([0.0, 1.05])
+plt.xlabel('False Positive Rate')
+plt.ylabel('True Positive Rate')
+plt.title('Receiver Operating Characteristic for Random Forest')
+plt.legend(loc="lower right")
+plt.show()
+
+
+# Predict probabilities for the test set
+y_probs_lr = grid_search_lr.predict_proba(X_test)[:, 1]  # probabilities for the positive class
+
+# Compute ROC curve and area under the curve for Logistic Regression
+fpr_lr, tpr_lr, thresholds_lr = roc_curve(y_test, y_probs_lr)
+roc_auc_lr = auc(fpr_lr, tpr_lr)
+
+# Plot ROC curve for Logistic Regression
+plt.figure(figsize=(8, 6))
+plt.plot(fpr_lr, tpr_lr, color='green', lw=2, label=f'ROC curve (area = {roc_auc_lr:.2f})')
+plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
+plt.xlim([0.0, 1.0])
+plt.ylim([0.0, 1.05])
+plt.xlabel('False Positive Rate')
+plt.ylabel('True Positive Rate')
+plt.title('Receiver Operating Characteristic for Logistic Regression')
+plt.legend(loc="lower right")
+plt.show()
+
+
+#Models without parameter tuning
+
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
+
+# Random Forest Pipeline without parameter tuning
+rf_model_simple = Pipeline(steps=[
+    ('preprocessor', preprocessor),
+    ('classifier', RandomForestClassifier(random_state=42))  # Using default parameters
+])
+# Train the Random Forest model
+rf_model_simple.fit(X_train, y_train)
+# Predictions with Random Forest
+y_pred_rf_simple = rf_model_simple.predict(X_test)
+
+# Evaluate Random Forest
+print('Random Forest Model without Parameter Tuning')
+print(f'Accuracy: {accuracy_score(y_test, y_pred_rf_simple)}')
+print(classification_report(y_test, y_pred_rf_simple))
+print(confusion_matrix(y_test, y_pred_rf_simple))
+print('\n')
+
+# Logistic Regression Pipeline without parameter tuning
+lr_model_simple = Pipeline(steps=[
+    ('preprocessor', preprocessor),
+    ('classifier', LogisticRegression(solver='liblinear', random_state=42))  # Using default parameters
+])
+# Train the Logistic Regression model
+lr_model_simple.fit(X_train, y_train)
+# Predictions with Logistic Regression
+y_pred_lr_simple = lr_model_simple.predict(X_test)
+# Evaluate Logistic Regression
+print('Logistic Regression Model without Parameter Tuning')
+print(f'Accuracy: {accuracy_score(y_test, y_pred_lr_simple)}')
+print(classification_report(y_test, y_pred_lr_simple))
+print(confusion_matrix(y_test, y_pred_lr_simple))
+
+
+from sklearn.metrics import roc_curve, auc
+import matplotlib.pyplot as plt
+
+# Predict probabilities for the positive class with the Random Forest model
+y_probs_rf_simple = rf_model_simple.predict_proba(X_test)[:, 1]
+
+# Compute ROC curve and area under the curve for Random Forest
+fpr_rf_simple, tpr_rf_simple, _ = roc_curve(y_test, y_probs_rf_simple)
+roc_auc_rf_simple = auc(fpr_rf_simple, tpr_rf_simple)
+
+# Plot ROC curve for Random Forest without parameter tuning
+plt.figure(figsize=(8, 6))
+plt.plot(fpr_rf_simple, tpr_rf_simple, label=f'Random Forest (AUC = {roc_auc_rf_simple:.2f})')
+plt.plot([0, 1], [0, 1], 'k--')  # Diagonal line for reference
+plt.xlim([0.0, 1.0])
+plt.ylim([0.0, 1.05])
+plt.xlabel('False Positive Rate')
+plt.ylabel('True Positive Rate')
+plt.title('ROC Curve for Random Forest Without Parameter Tuning')
+plt.legend(loc="lower right")
+plt.show()
+
+
+# Predict probabilities for the positive class with the Logistic Regression model
+y_probs_lr_simple = lr_model_simple.predict_proba(X_test)[:, 1]
+
+# Compute ROC curve and area under the curve for Logistic Regression
+fpr_lr_simple, tpr_lr_simple, _ = roc_curve(y_test, y_probs_lr_simple)
+roc_auc_lr_simple = auc(fpr_lr_simple, tpr_lr_simple)
+
+# Plot ROC curve for Logistic Regression without parameter tuning
+plt.figure(figsize=(8, 6))
+plt.plot(fpr_lr_simple, tpr_lr_simple, label=f'Logistic Regression (AUC = {roc_auc_lr_simple:.2f})')
+plt.plot([0, 1], [0, 1], 'k--')  # Diagonal line for reference
+plt.xlim([0.0, 1.0])
+plt.ylim([0.0, 1.05])
+plt.xlabel('False Positive Rate')
+plt.ylabel('True Positive Rate')
+plt.title('ROC Curve for Logistic Regression Without Parameter Tuning')
+plt.legend(loc="lower right")
+plt.show()
+
+
+#Feature importance for Random Forest
+
+rf_model_fitted = grid_search_rf.best_estimator_['classifier']
+
+import numpy as np
+import pandas as pd
+
+rf_model_fitted = grid_search_rf.best_estimator_['classifier']
+
+# Get feature names for the one-hot encoded categorical features
+onehot_feature_names = grid_search_rf.best_estimator_.named_steps['preprocessor'].named_transformers_['cat'].get_feature_names_out(input_features=categorical_features)
+
+# Combine one-hot encoded feature names with non-categorical feature names
+non_categorical_features = X.select_dtypes(exclude=['object', 'category']).columns.tolist()
+all_feature_names = np.concatenate([onehot_feature_names, non_categorical_features])
+
+# Feature importances
+importances = rf_model_fitted.feature_importances_
+
+# Create DataFrame for easier interpretation
+importances_df = pd.DataFrame({
+    'Feature': all_feature_names,
+    'Importance': importances
+})
+
+print(importances_df.sort_values(by='Importance', ascending=False))
+
+
+#Logistic Regression Coeffecients
+
+lr_model_fitted = grid_search_lr.best_estimator_['classifier']
+
+# Get feature names after one-hot encoding from the ColumnTransformer
+feature_names = grid_search_lr.best_estimator_.named_steps['preprocessor'].named_transformers_['cat'].get_feature_names_out(categorical_features)
+non_categorical_features = X.select_dtypes(exclude=['object', 'category']).columns.tolist()
+all_feature_names = np.concatenate([feature_names, non_categorical_features])
+
+# Coefficients
+coefficients = lr_model_fitted.coef_[0]
+
+# Create DataFrame for easier interpretation
+coefficients_df = pd.DataFrame({
+    'Feature': all_feature_names,
+    'Coefficient': coefficients
+})
+
+print(coefficients_df.sort_values(by='Coefficient', ascending=False))
+
+#Importances of Random Forest without tuning
+# Import necessary libraries
+import numpy as np
+import pandas as pd
+
+importances = rf_model_simple.named_steps['classifier'].feature_importances_
+
+feature_names_transformed = rf_model_simple.named_steps['preprocessor'].get_feature_names_out()
+
+all_feature_names = feature_names_transformed
+
+# Create a DataFrame for feature importances for better readability
+importances_df = pd.DataFrame({
+    'Feature': all_feature_names,
+    'Importance': importances
+}).sort_values(by='Importance', ascending=False)
+
+# Display the DataFrame
+print(importances_df)
+
+
+#Coeffecients of Logistic Regression without Tuning
+
+# Access the preprocessor from the pipeline
+preprocessor = lr_model_simple.named_steps['preprocessor']
+
+feature_names_transformed = preprocessor.named_transformers_['cat'].get_feature_names_out()
+
+non_categorical_features = X.select_dtypes(exclude=['object', 'category']).columns
+all_feature_names = np.concatenate((feature_names_transformed, non_categorical_features), axis=None)
+
+# Retrieve the coefficients from the fitted logistic regression model within the pipeline
+coefficients = fitted_lr_model.coef_[0]
+
+# Create a DataFrame for easier interpretation
+coefficients_df = pd.DataFrame({
+    'Feature': all_feature_names,
+    'Coefficient': coefficients
+}).sort_values(by='Coefficient', ascending=False)
+
+print(coefficients_df)
